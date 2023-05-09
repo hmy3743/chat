@@ -336,7 +336,7 @@ defmodule ChatWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div phx-feedback-for={@name}>
+    <div phx-feedback-for={@name} class="w-full">
       <.label for={@id}><%= @label %></.label>
       <input
         type={@type}

@@ -18,6 +18,14 @@ defmodule ChatWeb.Router do
   end
 
   scope "/", ChatWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :authenticated, on_mount: {ChatWeb.UserAuth, :ensure_authenticated} do
+      live "/chat", ChatLive
+    end
+  end
+
+  scope "/", ChatWeb do
     pipe_through :browser
 
     get "/", PageController, :home
