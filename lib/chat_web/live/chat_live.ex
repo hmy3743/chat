@@ -11,10 +11,7 @@ defmodule ChatWeb.ChatLive do
   def mount(_param, _session, socket) do
     form = %Message{} |> Messages.change_message() |> to_form()
 
-    messages =
-      Messages.list_messages_with_user()
-      |> Enum.map(fn %{user: user} = message -> Map.put(message, :username, user.email) end)
-      |> Enum.map(&Map.delete(&1, :user))
+    messages = Messages.list_messages_with_user()
 
     socket =
       socket
@@ -43,7 +40,7 @@ defmodule ChatWeb.ChatLive do
     <div id="message-container" class="m-1 mt-5" phx-update="stream">
       <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg">
         <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
-          <%= message.username %>
+          <%= message.user.email %>
         </span>
         <span class="p-1">
           <%= message.content %>
@@ -67,7 +64,7 @@ defmodule ChatWeb.ChatLive do
 
   @impl Phoenix.LiveView
   def handle_info({:new_message, message, sender}, socket) do
-    message = Map.put(message, :username, sender.email)
+    message = Map.put(message, :user, sender)
 
     socket =
       socket
