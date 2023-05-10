@@ -22,6 +22,7 @@ defmodule ChatWeb.Router do
 
     live_session :authenticated, on_mount: {ChatWeb.UserAuth, :ensure_authenticated} do
       live "/chat", ChatLive
+      live "/chat/:channel", ChatLive
     end
   end
 

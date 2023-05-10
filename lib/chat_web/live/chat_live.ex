@@ -1,4 +1,5 @@
 defmodule ChatWeb.ChatLive do
+  alias Chat.Channels
   alias ChatWeb.Presence
   alias Phoenix.PubSub
   alias Chat.Messages.Message
@@ -10,25 +11,41 @@ defmodule ChatWeb.ChatLive do
   @limit 30
 
   @impl Phoenix.LiveView
-  def mount(_param, _session, socket) do
+  def mount(params, _session, socket) do
+    channel =
+      params
+      |> Map.get("channel", "default")
+      |> Channels.get_channel_by_name!()
+
     form = %Message{} |> Messages.change_message() |> to_form()
 
-    socket = assign(socket, limit: @limit, offset: 0)
+    messages =
+      Messages.list_messages(channel: channel, offset: 0, limit: @limit, preload: [:user])
 
-    Task.async(fn ->
-      loaded_messages = get_messages_by_offset(0)
-      {:messages_loaded, loaded_messages}
-    end)
+    channels = Channels.list_channels()
 
     socket =
       socket
-      |> assign(offset: 0, limit: 10, loading: true)
-      |> assign(form: form, presences: refine_presences(Presence.list(@topic)))
-      |> stream(:messages, refine_messages([]))
+      |> assign(
+        form: form,
+        presences: refine_presences(Presence.list("#{@topic}/#{channel.name}")),
+        channel: channel,
+        channels: channels,
+        limit: @limit,
+        offset: 0,
+        loading: true
+      )
+      |> stream(:messages, refine_messages(messages))
 
     if connected?(socket) do
-      :ok = PubSub.subscribe(@pubsub, @topic)
-      Presence.track(self(), @topic, socket.assigns.current_user.id, socket.assigns.current_user)
+      :ok = PubSub.subscribe(@pubsub, "#{@topic}/#{channel.name}")
+
+      Presence.track(
+        self(),
+        "#{@topic}/#{channel.name}",
+        socket.assigns.current_user.id,
+        socket.assigns.current_user
+      )
     end
 
     {:ok, socket}
@@ -37,6 +54,19 @@ defmodule ChatWeb.ChatLive do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
+    <h1 class="text-4xl font-bold"># <%= @channel.name %></h1>
+    <div class="p-1">
+      <label for="channels"><span class="font-mono font-semibold">Channels</span></label>
+      <div id="channels">
+        <.link
+          :for={channel <- @channels}
+          navigate={~p"/chat/#{channel.name}"}
+          class="inline-block bg-blue-200 rounded px-1 m-0.5"
+        >
+          <%= channel.name %>
+        </.link>
+      </div>
+    </div>
     <div class="flex">
       <div class="p-1 m-1 border-2 border-dashed border-grey">
         <h1 class="text-xl font-bold">
@@ -114,11 +144,17 @@ defmodule ChatWeb.ChatLive do
     result =
       message
       |> Map.put("user_id", socket.assigns.current_user.id)
+      |> Map.put("channel_id", socket.assigns.channel.id)
       |> Messages.create_message()
 
     case result do
       {:ok, message} ->
-        PubSub.broadcast!(@pubsub, @topic, {:new_message, message, socket.assigns.current_user})
+        PubSub.broadcast!(
+          @pubsub,
+          "#{@topic}/#{socket.assigns.channel.name}",
+          {:new_message, message, socket.assigns.current_user}
+        )
+
         {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
 
       {:error, changeset} ->
@@ -127,19 +163,16 @@ defmodule ChatWeb.ChatLive do
   end
 
   def handle_event("load-more", _params, socket) do
+    channel = socket.assigns.channel
     new_offset = socket.assigns.offset + @limit
 
-    Task.async(fn ->
-      loaded_messages = get_messages_by_offset(new_offset)
-      {:messages_loaded, loaded_messages}
-    end)
-
-    {:noreply, assign(socket, offset: new_offset, loading: true)}
-  end
-
-  # 비동기 작업 완료 후 메세지 로드
-  def handle_info({_ref, {:messages_loaded, messages}}, socket) do
-    IO.inspect("matched")
+    messages =
+      Messages.list_messages(
+        channel: channel,
+        limit: @limit,
+        offset: new_offset,
+        preload: [:user]
+      )
 
     socket =
       socket
@@ -171,8 +204,15 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
-  def handle_info(msg, socket) do
-    IO.inspect(msg)
+  def handle_info(
+        %{event: "presence_diff", payload: %{joins: joins, leaves: leaves}},
+        socket
+      ) do
+    socket =
+      socket
+      |> apply_leaves(leaves)
+      |> apply_joins(joins)
+
     {:noreply, socket}
   end
 
@@ -222,9 +262,5 @@ defmodule ChatWeb.ChatLive do
 
   defp background_color(color) do
     "background-color: rgba(#{color.r}, #{color.g}, #{color.b}, #{color.a})"
-  end
-
-  defp get_messages_by_offset(offset) do
-    Messages.list_messages_with_user_and_limit_and_offset(@limit, offset)
   end
 end
