@@ -15,13 +15,16 @@ defmodule ChatWeb.ChatLive do
 
     socket = assign(socket, limit: @limit, offset: 0)
 
-    messages = get_messages_by_offset(0)
+    Task.async(fn ->
+      loaded_messages = get_messages_by_offset(0)
+      {:messages_loaded, loaded_messages}
+    end)
 
     socket =
       socket
-      |> assign(offset: 0, limit: 10)
+      |> assign(offset: 0, limit: 10, loading: true)
       |> assign(form: form, presences: refine_presences(Presence.list(@topic)))
-      |> stream(:messages, refine_messages(messages))
+      |> stream(:messages, refine_messages([]))
 
     if connected?(socket) do
       :ok = PubSub.subscribe(@pubsub, @topic)
@@ -84,6 +87,21 @@ defmodule ChatWeb.ChatLive do
               </span>
             </div>
           </div>
+          <%= if assigns.loading do %>
+            <!-- Skeleton Loading -->
+            <div :for={_ <- 1..30 |> Enum.to_list()} class="p-2">
+              <div class="animate-pulse flex space-x-4">
+                <div class="flex-1 space-y-6 py-1">
+                  <div class="space-y-3">
+                    <div class="grid grid-cols-3 gap-4">
+                      <div class="h-2 bg-slate-400 rounded col-span-1"></div>
+                      <div class="h-2 bg-slate-400 rounded col-span-2"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <% end %>
           <div id="infinite-scroll-marker" phx-hook="InfiniteScroll"></div>
         </div>
       </div>
@@ -110,17 +128,39 @@ defmodule ChatWeb.ChatLive do
 
   def handle_event("load-more", _params, socket) do
     new_offset = socket.assigns.offset + @limit
-    messages = get_messages_by_offset(new_offset)
+
+    Task.async(fn ->
+      loaded_messages = get_messages_by_offset(new_offset)
+      {:messages_loaded, loaded_messages}
+    end)
+
+    {:noreply, assign(socket, offset: new_offset, loading: true)}
+  end
+
+  # 비동기 작업 완료 후 메세지 로드
+  def handle_info({_ref, {:messages_loaded, messages}}, socket) do
+    IO.inspect("matched")
 
     socket =
       socket
-      |> assign(offset: new_offset)
       |> stream_insert_many_messages(:messages, messages)
+
+    {:noreply, assign(socket, loading: false)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info(
+        %{topic: @topic, event: "presence_diff", payload: %{joins: joins, leaves: leaves}},
+        socket
+      ) do
+    socket =
+      socket
+      |> apply_leaves(leaves)
+      |> apply_joins(joins)
 
     {:noreply, socket}
   end
 
-  @impl Phoenix.LiveView
   def handle_info({:new_message, message, sender}, socket) do
     message = Map.put(message, :user, sender)
 
@@ -131,15 +171,8 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
-  def handle_info(
-        %{topic: @topic, event: "presence_diff", payload: %{joins: joins, leaves: leaves}},
-        socket
-      ) do
-    socket =
-      socket
-      |> apply_leaves(leaves)
-      |> apply_joins(joins)
-
+  def handle_info(msg, socket) do
+    IO.inspect(msg)
     {:noreply, socket}
   end
 
