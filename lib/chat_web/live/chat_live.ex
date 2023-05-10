@@ -7,7 +7,7 @@ defmodule ChatWeb.ChatLive do
 
   @pubsub Chat.PubSub
   @topic __MODULE__ |> Atom.to_string()
-  @limit 10
+  @limit 30
 
   @impl Phoenix.LiveView
   def mount(_param, _session, socket) do
@@ -59,18 +59,20 @@ defmodule ChatWeb.ChatLive do
         </ul>
       </div>
       <div class="w-full m-1">
-        <.simple_form phx-submit="new-message" for={@form}>
-          <div class="flex">
-            <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
-            <button
-              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              type="submit"
-            >
-              Submit
-            </button>
-          </div>
-        </.simple_form>
-        <div class="mt-5 overflow-scroll max-h-60">
+        <div class="sticky top-0 left-0 right-0">
+          <.simple_form phx-submit="new-message" for={@form}>
+            <div class="flex">
+              <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
+              <button
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                type="submit"
+              >
+                Submit
+              </button>
+            </div>
+          </.simple_form>
+        </div>
+        <div class="mt-5 overflow-scroll">
           <div id="message-container" phx-update="stream">
             <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
               <div class="w-1" style={background_color(message.user.color)}></div>
