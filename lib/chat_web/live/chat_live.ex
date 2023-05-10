@@ -70,17 +70,19 @@ defmodule ChatWeb.ChatLive do
             </button>
           </div>
         </.simple_form>
-        <div id="message-container" class="mt-5 overflow-scroll max-h-60" phx-update="stream">
-          <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
-            <div class="w-1" style={background_color(message.user.color)}></div>
-            <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
-              <%= message.user.email %>
-            </span>
-            <span class="p-1">
-              <%= message.content %>
-            </span>
+        <div class="mt-5 overflow-scroll max-h-60">
+          <div id="message-container" phx-update="stream">
+            <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
+              <div class="w-1" style={background_color(message.user.color)}></div>
+              <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
+                <%= message.user.email %>
+              </span>
+              <span class="p-1">
+                <%= message.content %>
+              </span>
+            </div>
           </div>
-          <div id="infinite-scroll-marker" phx-hook="InfiniteScroll">im div</div>
+          <div id="infinite-scroll-marker" phx-hook="InfiniteScroll"></div>
         </div>
       </div>
     </div>
