@@ -42,7 +42,7 @@ defmodule ChatWeb.ChatLive do
           <li>
             <div class="flex items-center space-x-4">
               <div class="flex-1 min-w-0">
-                <div class="w-full h-1" style={background_color(user.color)}></div>
+                <%!-- <div class="w-full h-1" style={background_color(user.color)}></div> --%>
                 <p class="text-sm font-medium text-gray-900 truncate dark:text-white">
                   <%= name_from_email(user.email) %>
                 </p>
@@ -55,18 +55,20 @@ defmodule ChatWeb.ChatLive do
         </ul>
       </div>
       <div class="w-full m-1">
-        <.form phx-submit="new-message" for={@form} class="flex">
-          <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
-          <button
-            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-            type="submit"
-          >
-            Submit
-          </button>
-        </.form>
+        <.simple_form phx-submit="new-message" for={@form}>
+          <div class="flex">
+            <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
+            <button
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              type="submit"
+            >
+              Submit
+            </button>
+          </div>
+        </.simple_form>
         <div id="message-container" class="mt-5" phx-update="stream">
           <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
-            <div class="w-1" style={background_color(message.user.color)}></div>
+            <%!-- <div class="w-1" style={background_color(message.user.color)}></div> --%>
             <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
               <%= message.user.email %>
             </span>
