@@ -7,15 +7,19 @@ defmodule ChatWeb.ChatLive do
 
   @pubsub Chat.PubSub
   @topic __MODULE__ |> Atom.to_string()
+  @limit 10
 
   @impl Phoenix.LiveView
   def mount(_param, _session, socket) do
     form = %Message{} |> Messages.change_message() |> to_form()
 
-    messages = Messages.list_messages_with_user()
+    socket = assign(socket, limit: @limit, offset: 0)
+
+    messages = get_messages_by_offset(0)
 
     socket =
       socket
+      |> assign(offset: 0, limit: 10)
       |> assign(form: form, presences: refine_presences(Presence.list(@topic)))
       |> stream(:messages, refine_messages(messages))
 
@@ -55,25 +59,30 @@ defmodule ChatWeb.ChatLive do
         </ul>
       </div>
       <div class="w-full m-1">
-        <.form phx-submit="new-message" for={@form} class="flex">
-          <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
-          <button
-            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-            type="submit"
-          >
-            Submit
-          </button>
-        </.form>
-        <div id="message-container" class="mt-5" phx-update="stream">
-          <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
-            <div class="w-1" style={background_color(message.user.color)}></div>
-            <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
-              <%= message.user.email %>
-            </span>
-            <span class="p-1">
-              <%= message.content %>
-            </span>
+        <.simple_form phx-submit="new-message" for={@form}>
+          <div class="flex">
+            <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
+            <button
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              type="submit"
+            >
+              Submit
+            </button>
           </div>
+        </.simple_form>
+        <div class="mt-5 overflow-scroll max-h-60">
+          <div id="message-container" phx-update="stream">
+            <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
+              <div class="w-1" style={background_color(message.user.color)}></div>
+              <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
+                <%= message.user.email %>
+              </span>
+              <span class="p-1">
+                <%= message.content %>
+              </span>
+            </div>
+          </div>
+          <div id="infinite-scroll-marker" phx-hook="InfiniteScroll"></div>
         </div>
       </div>
     </div>
@@ -97,6 +106,18 @@ defmodule ChatWeb.ChatLive do
     end
   end
 
+  def handle_event("load-more", _params, socket) do
+    new_offset = socket.assigns.offset + @limit
+    messages = get_messages_by_offset(new_offset)
+
+    socket =
+      socket
+      |> assign(offset: new_offset)
+      |> stream_insert_many_messages(:messages, messages)
+
+    {:noreply, socket}
+  end
+
   @impl Phoenix.LiveView
   def handle_info({:new_message, message, sender}, socket) do
     message = Map.put(message, :user, sender)
@@ -118,6 +139,12 @@ defmodule ChatWeb.ChatLive do
       |> apply_joins(joins)
 
     {:noreply, socket}
+  end
+
+  defp stream_insert_many_messages(socket, name, messages) do
+    Enum.reduce(messages, socket, fn message, acc ->
+      Phoenix.LiveView.stream_insert(acc, name, refine_message(message), at: -1)
+    end)
   end
 
   defp refine_presences(presences) do
@@ -160,5 +187,9 @@ defmodule ChatWeb.ChatLive do
 
   defp background_color(color) do
     "background-color: rgba(#{color.r}, #{color.g}, #{color.b}, #{color.a})"
+  end
+
+  defp get_messages_by_offset(offset) do
+    Messages.list_messages_with_user_and_limit_and_offset(@limit, offset)
   end
 end

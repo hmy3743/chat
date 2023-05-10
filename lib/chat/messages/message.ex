@@ -3,8 +3,8 @@ defmodule Chat.Messages.Message do
   import Ecto.Changeset
 
   schema "messages" do
-    field :content, :string
-    belongs_to :user, Chat.Accounts.User
+    field(:content, :string)
+    belongs_to(:user, Chat.Accounts.User)
     timestamps()
   end
 

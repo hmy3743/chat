@@ -25,6 +25,19 @@ defmodule Chat.Messages do
   def list_messages_with_user,
     do: Repo.all(from m in Message, order_by: [desc: m.id], preload: [:user])
 
+  def list_messages_with_user_and_limit(limit),
+    do: Repo.all(from m in Message, order_by: [desc: m.id], limit: ^limit, preload: [:user])
+
+  def list_messages_with_user_and_limit_and_offset(limit, offset),
+    do:
+      Repo.all(
+        from m in Message,
+          order_by: [desc: m.id],
+          limit: ^limit,
+          offset: ^offset,
+          preload: [:user]
+      )
+
   @doc """
   Gets a single message.
 
