@@ -55,7 +55,7 @@ defmodule ChatWeb.ChatLive do
       </div>
       <div class="w-full m-1">
         <.form phx-submit="new-message" for={@form} class="flex">
-          <.input field={@form[:content]} placeholder="Type here" />
+          <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
           <button
             class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
             type="submit"
