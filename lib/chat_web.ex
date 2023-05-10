@@ -54,6 +54,12 @@ defmodule ChatWeb do
       use Phoenix.LiveView,
         layout: {ChatWeb.Layouts, :app}
 
+      def stream_insert_many(socket, name, items, opts \\ []) do
+        Enum.reduce(items, socket, fn item, acc ->
+          Phoenix.LiveView.stream_insert(acc, name, item, opts)
+        end)
+      end
+
       unquote(html_helpers())
     end
   end

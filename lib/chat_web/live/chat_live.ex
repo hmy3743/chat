@@ -7,15 +7,19 @@ defmodule ChatWeb.ChatLive do
 
   @pubsub Chat.PubSub
   @topic __MODULE__ |> Atom.to_string()
+  @limit 10
 
   @impl Phoenix.LiveView
   def mount(_param, _session, socket) do
     form = %Message{} |> Messages.change_message() |> to_form()
 
-    messages = Messages.list_messages_with_user()
+    socket = assign(socket, limit: @limit, offset: 0)
+
+    messages = get_messages_by_offset(0)
 
     socket =
       socket
+      |> assign(offset: 0, limit: 10)
       |> assign(form: form, presences: refine_presences(Presence.list(@topic)))
       |> stream(:messages, refine_messages(messages))
 
@@ -66,7 +70,7 @@ defmodule ChatWeb.ChatLive do
             </button>
           </div>
         </.simple_form>
-        <div id="message-container" class="mt-5" phx-update="stream">
+        <div id="message-container" class="mt-5 overflow-scroll max-h-60" phx-update="stream">
           <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
             <%!-- <div class="w-1" style={background_color(message.user.color)}></div> --%>
             <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
@@ -76,6 +80,7 @@ defmodule ChatWeb.ChatLive do
               <%= message.content %>
             </span>
           </div>
+          <div id="infinite-scroll-marker" phx-hook="InfiniteScroll">im div</div>
         </div>
       </div>
     </div>
@@ -97,6 +102,16 @@ defmodule ChatWeb.ChatLive do
       {:error, changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}
     end
+  end
+
+  def handle_event("load-more", _params, socket) do
+    new_offset = socket.assigns.offset + @limit
+    messages = get_messages_by_offset(new_offset)
+
+    socket =
+      socket |> assign(offset: new_offset) |> stream_insert_many(:messages, messages, at: -1)
+
+    {:noreply, socket}
   end
 
   @impl Phoenix.LiveView
@@ -162,5 +177,9 @@ defmodule ChatWeb.ChatLive do
 
   defp background_color(color) do
     "background-color: rgba(#{color.r}, #{color.g}, #{color.b}, #{color.a})"
+  end
+
+  defp get_messages_by_offset(offset) do
+    Messages.list_messages_with_user_and_limit_and_offset(@limit, offset)
   end
 end
