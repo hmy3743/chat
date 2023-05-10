@@ -22,7 +22,8 @@ defmodule Chat.Messages do
     Repo.all(Message)
   end
 
-  def list_messages_with_user, do: Repo.all(from p in Message, preload: [:user])
+  def list_messages_with_user,
+    do: Repo.all(from m in Message, order_by: [desc: m.id], preload: [:user])
 
   @doc """
   Gets a single message.

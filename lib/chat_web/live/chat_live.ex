@@ -68,7 +68,7 @@ defmodule ChatWeb.ChatLive do
 
     socket =
       socket
-      |> stream_insert(:messages, message)
+      |> stream_insert(:messages, message, at: 0)
 
     {:noreply, socket}
   end
