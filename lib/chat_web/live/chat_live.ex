@@ -17,7 +17,7 @@ defmodule ChatWeb.ChatLive do
     socket =
       socket
       |> assign(form: form, presences: refine_presences(Presence.list(@topic)))
-      |> stream(:messages, messages)
+      |> stream(:messages, refine_messages(messages))
 
     if connected?(socket) do
       :ok = PubSub.subscribe(@pubsub, @topic)
@@ -42,6 +42,7 @@ defmodule ChatWeb.ChatLive do
           <li>
             <div class="flex items-center space-x-4">
               <div class="flex-1 min-w-0">
+                <div class="w-full h-1" style={background_color(user.color)}></div>
                 <p class="text-sm font-medium text-gray-900 truncate dark:text-white">
                   <%= name_from_email(user.email) %>
                 </p>
@@ -64,7 +65,8 @@ defmodule ChatWeb.ChatLive do
           </button>
         </.form>
         <div id="message-container" class="mt-5" phx-update="stream">
-          <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg">
+          <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
+            <div class="w-1" style={background_color(message.user.color)}></div>
             <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
               <%= message.user.email %>
             </span>
@@ -119,7 +121,19 @@ defmodule ChatWeb.ChatLive do
   end
 
   defp refine_presences(presences) do
-    Enum.into(presences, %{}, fn {id, %{metas: [user | _]}} -> {id, user} end)
+    Enum.into(presences, %{}, &refine_presence/1)
+  end
+
+  defp refine_presence({id, %{metas: [user | _]}}) do
+    {id, Map.put(user, :color, user_color(user))}
+  end
+
+  defp refine_messages(messages) do
+    Enum.map(messages, &refine_message/1)
+  end
+
+  defp refine_message(message) do
+    update_in(message.user, &Map.put(&1, :color, user_color(&1)))
   end
 
   defp apply_leaves(socket, leaves) do
@@ -132,5 +146,19 @@ defmodule ChatWeb.ChatLive do
 
   defp name_from_email(email) do
     email |> String.split("@") |> hd()
+  end
+
+  defp user_color(user) do
+    seed = :erlang.phash2(user.email)
+
+    r = seed |> Kernel.+(0) |> rem(256)
+    g = seed |> Kernel.+(64) |> rem(256)
+    b = seed |> Kernel.+(128) |> rem(256)
+
+    %{r: r, g: g, b: b, a: 0.8}
+  end
+
+  defp background_color(color) do
+    "background-color: rgba(#{color.r}, #{color.g}, #{color.b}, #{color.a})"
   end
 end
