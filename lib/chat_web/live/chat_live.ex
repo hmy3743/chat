@@ -52,14 +52,19 @@ defmodule ChatWeb.ChatLive do
 
   @impl Phoenix.LiveView
   def handle_event("new-message", %{"message" => message}, socket) do
-    {:ok, message} =
+    result =
       message
       |> Map.put("user_id", socket.assigns.current_user.id)
       |> Messages.create_message()
 
-    PubSub.broadcast!(@pubsub, @topic, {:new_message, message, socket.assigns.current_user})
+    case result do
+      {:ok, message} ->
+        PubSub.broadcast!(@pubsub, @topic, {:new_message, message, socket.assigns.current_user})
+        {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
 
-    {:noreply, socket}
+      {:error, changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset))}
+    end
   end
 
   @impl Phoenix.LiveView
