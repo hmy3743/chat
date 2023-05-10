@@ -46,7 +46,7 @@ defmodule ChatWeb.ChatLive do
           <li>
             <div class="flex items-center space-x-4">
               <div class="flex-1 min-w-0">
-                <%!-- <div class="w-full h-1" style={background_color(user.color)}></div> --%>
+                <div class="w-full h-1" style={background_color(user.color)}></div>
                 <p class="text-sm font-medium text-gray-900 truncate dark:text-white">
                   <%= name_from_email(user.email) %>
                 </p>
@@ -72,7 +72,7 @@ defmodule ChatWeb.ChatLive do
         </.simple_form>
         <div id="message-container" class="mt-5 overflow-scroll max-h-60" phx-update="stream">
           <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
-            <%!-- <div class="w-1" style={background_color(message.user.color)}></div> --%>
+            <div class="w-1" style={background_color(message.user.color)}></div>
             <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
               <%= message.user.email %>
             </span>
@@ -109,7 +109,9 @@ defmodule ChatWeb.ChatLive do
     messages = get_messages_by_offset(new_offset)
 
     socket =
-      socket |> assign(offset: new_offset) |> stream_insert_many(:messages, messages, at: -1)
+      socket
+      |> assign(offset: new_offset)
+      |> stream_insert_many_messages(:messages, messages)
 
     {:noreply, socket}
   end
@@ -120,7 +122,7 @@ defmodule ChatWeb.ChatLive do
 
     socket =
       socket
-      |> stream_insert(:messages, message, at: 0)
+      |> stream_insert(:messages, refine_message(message), at: 0)
 
     {:noreply, socket}
   end
@@ -135,6 +137,12 @@ defmodule ChatWeb.ChatLive do
       |> apply_joins(joins)
 
     {:noreply, socket}
+  end
+
+  defp stream_insert_many_messages(socket, name, messages) do
+    Enum.reduce(messages, socket, fn message, acc ->
+      Phoenix.LiveView.stream_insert(acc, name, refine_message(message), at: -1)
+    end)
   end
 
   defp refine_presences(presences) do
