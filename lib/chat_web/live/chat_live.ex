@@ -32,6 +32,9 @@ defmodule ChatWeb.ChatLive do
     ~H"""
     <div class="flex">
       <div class="p-1 m-1 border-2 border-dashed border-grey">
+        <h1 class="text-xl font-bold">
+          접속 현황
+        </h1>
         <ul
           :for={{_id, user} <- @presences}
           class="p-1 m-0.5 max-w-md divide-y divide-gray-200 dark:divide-gray-700 border-dashed border-zinc-150 border-2"
