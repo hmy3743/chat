@@ -2,7 +2,6 @@ export default InfiniteScroll = {
   mounted() {
     this.observer = new IntersectionObserver(
       (entries) => {
-        console.log("zz");
         const target = entries[0];
         if (target.isIntersecting) {
           this.pushEvent("load-more", {});
