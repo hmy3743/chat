@@ -69,7 +69,7 @@ defmodule ChatWeb.ChatLive do
       </div>
     </div>
     <div class="flex">
-      <div class="p-1 m-1 border-2 border-dashed border-grey">
+      <div class="p-1 m-1 border-2 border-dashed border-grey h-min sticky top-0">
         <h1 class="text-xl font-bold">
           접속 현황
         </h1>
