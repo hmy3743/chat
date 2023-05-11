@@ -114,14 +114,16 @@ defmodule ChatWeb.ChatLive do
             </div>
           </.simple_form>
         </div>
-        <div class="mt-5 overflow-scroll">
+        <div class="mt-5">
           <div id="message-container" phx-update="stream">
             <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
-              <div class="w-1" style={background_color(message.user.color)}></div>
-              <span style="width: 140px;" class="inline-block bg-gray-200 rounded-3xl px-3 py-1">
-                <%= message.user.email %>
-              </span>
-              <span style="max-width: 350px;" class="p-1">
+              <div class="flex max-h-8">
+                <div class="shrink-0 w-1 min-w-1" style={background_color(message.user.color)}></div>
+                <span class="shrink-0 bg-gray-200 rounded-3xl px-2 py-1 truncate w-36">
+                  <%= message.user.email %>
+                </span>
+              </div>
+              <span class="break-all p-1">
                 <%= message.content %>
               </span>
             </div>
