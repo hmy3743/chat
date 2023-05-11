@@ -8,6 +8,7 @@ defmodule Chat.Messages do
   alias Chat.Repo
 
   alias Chat.Messages.Message
+  alias Chat.Channels.Channel
 
   @doc """
   Returns the list of messages.
@@ -18,12 +19,37 @@ defmodule Chat.Messages do
       [%Message{}, ...]
 
   """
-  def list_messages do
-    Repo.all(Message)
+  def list_messages(options \\ []) do
+    default = [preload: [], channel: nil, limit: :infinit, offset: 0]
+
+    options =
+      Keyword.merge(default, options)
+      |> Enum.into(%{})
+
+    query =
+      from m in Message,
+        order_by: [desc: m.id],
+        preload: ^options.preload,
+        limit: ^options.limit,
+        offset: ^options.offset
+
+    query =
+      case(options.channel) do
+        %Channel{id: id} -> where(query, [m], m.channel_id == ^id)
+        _ -> query
+      end
+
+    Repo.all(query)
   end
 
-  def list_messages_with_user,
-    do: Repo.all(from m in Message, order_by: [desc: m.id], preload: [:user])
+  def list_messages_with_user(channel = %Channel{} \\ %Channel{id: 1}),
+    do:
+      Repo.all(
+        from m in Message,
+          where: m.channel_id == ^channel.id,
+          order_by: [desc: m.id],
+          preload: [:user]
+      )
 
   def list_messages_with_user_and_limit(limit),
     do: Repo.all(from m in Message, order_by: [desc: m.id], limit: ^limit, preload: [:user])
