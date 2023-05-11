@@ -22,6 +22,7 @@ defmodule ChatWeb.ChatLive do
 
     socket =
       socket
+      |> assign(loading_done: false)
       |> assign(offset: 0, limit: 10, loading: true)
       |> assign(form: form, presences: refine_presences(Presence.list(@topic)))
       |> stream(:messages, refine_messages([]))
@@ -43,10 +44,10 @@ defmodule ChatWeb.ChatLive do
           접속 현황
         </h1>
         <ul
-          :for={{_id, user} <- @presences}
-          class="p-1 m-0.5 max-w-md divide-y divide-gray-200 dark:divide-gray-700 border-dashed border-zinc-150 border-2"
+
+          class="p-0 m-0.5 max-w-md divide-y divide-gray-200 dark:divide-gray-700 border-dashed border-zinc-150 border-2"
         >
-          <li>
+          <li :for={{_id, user} <- @presences} class="border-none m-1">
             <div class="flex items-center space-x-4">
               <div class="flex-1 min-w-0">
                 <div class="w-full h-1" style={background_color(user.color)}></div>
@@ -102,7 +103,9 @@ defmodule ChatWeb.ChatLive do
               </div>
             </div>
           <% end %>
-          <div id="infinite-scroll-marker" phx-hook="InfiniteScroll"></div>
+          <%= if @loading_done do %>
+            <div id="infinite-scroll-marker" phx-hook="InfiniteScroll"></div>
+          <% end %>
         </div>
       </div>
     </div>
@@ -144,6 +147,7 @@ defmodule ChatWeb.ChatLive do
     socket =
       socket
       |> stream_insert_many_messages(:messages, messages)
+      |> assign(loading_done: length(messages) > 0)
 
     {:noreply, assign(socket, loading: false)}
   end
