@@ -39,6 +39,8 @@ defmodule ChatWeb.ChatLive do
         offset: 0,
         loading_done: false,
         loading: false,
+        is_typing: false,
+        typing_users: [],
         chat_gpt_token: ""
       )
       |> stream(:messages, refine_messages(messages))
@@ -50,7 +52,7 @@ defmodule ChatWeb.ChatLive do
         self(),
         "#{@topic}/#{channel.name}",
         socket.assigns.current_user.id,
-        socket.assigns.current_user
+        %{user: socket.assigns.current_user, is_typing: false}
       )
     end
 
@@ -101,8 +103,9 @@ defmodule ChatWeb.ChatLive do
             <div class="flex">
               <.input
                 field={@form[:content]}
-                phx-hook="InputCleanUp"
+                phx-update="ignore"
                 placeholder="Type here"
+                phx-hook="MessageInput"
                 autocomplete="off"
               />
               <button
@@ -113,6 +116,14 @@ defmodule ChatWeb.ChatLive do
               </button>
             </div>
           </.simple_form>
+          <%= if @typing_users |> length > 0 do %>
+            <ul>
+              <%= @typing_users
+              |> Enum.map(fn user -> user.email end)
+              |> Enum.join(", ")
+              |> Kernel.<>(" is typing...") %>
+            </ul>
+          <% end %>
         </div>
         <div class="mt-5">
           <div id="message-container" phx-update="stream">
@@ -178,6 +189,33 @@ defmodule ChatWeb.ChatLive do
     end
   end
 
+  def handle_event("start_typing", _, socket) do
+    # is_typing 플래그가 false라면, true로 바꾸고 방송을 한다.
+    if socket.assigns.is_typing == false do
+      PubSub.broadcast!(
+        @pubsub,
+        "#{@topic}/#{socket.assigns.channel.name}",
+        {:start_typing, socket.assigns.current_user}
+      )
+    end
+
+    socket = socket |> assign(is_typing: true)
+    {:noreply, socket}
+  end
+
+  def handle_event("end_typing", _, socket) do
+    if socket.assigns.is_typing == true do
+      PubSub.broadcast!(
+        @pubsub,
+        "#{@topic}/#{socket.assigns.channel.name}",
+        {:end_typing, socket.assigns.current_user}
+      )
+    end
+
+    socket = socket |> assign(is_typing: false)
+    {:noreply, socket}
+  end
+
   def handle_event("load-more", _params, socket) do
     channel = socket.assigns.channel
     new_offset = socket.assigns.offset + @limit
@@ -216,6 +254,7 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
+  @impl Phoenix.LiveView
   def handle_info({:new_message, message, sender}, socket) do
     message = Map.put(message, :user, sender)
 
@@ -226,6 +265,7 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
+  @impl Phoenix.LiveView
   def handle_info(
         %{event: "presence_diff", payload: %{joins: joins, leaves: leaves}},
         socket
@@ -237,6 +277,34 @@ defmodule ChatWeb.ChatLive do
 
     {:noreply, socket}
   end
+
+  @impl Phoenix.LiveView
+  def handle_info({:start_typing, user}, socket) do
+    typing_users = [user | socket.assigns.typing_users]
+
+    socket =
+      socket
+      |> assign(typing_users: typing_users)
+
+    {:noreply, socket}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info({:end_typing, user}, socket) do
+    typing_users =
+      socket.assigns.typing_users
+      |> Enum.filter(fn usr -> usr.email != user.email end)
+
+    socket =
+      socket
+      |> assign(
+        typing_users: typing_users,
+        is_typing: false
+      )
+
+    {:noreply, socket}
+  end
+
 
   def handle_info({__MODULE__, :gpt, message}, socket) do
     reply = ChatGptClient.chat(socket.assigns.chat_gpt_token, message.content)
@@ -283,8 +351,10 @@ defmodule ChatWeb.ChatLive do
     Enum.into(presences, %{}, &refine_presence/1)
   end
 
-  defp refine_presence({id, %{metas: [user | _]}}) do
-    {id, Map.put(user, :color, user_color(user))}
+  defp refine_presence({id, %{metas: [meta | _]}}) do
+    user = meta.user
+    user = user |> Map.put(:is_typing, meta.is_typing) |> Map.put(:color, user_color(user))
+    {id, user}
   end
 
   defp refine_messages(messages) do
