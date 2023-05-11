@@ -38,7 +38,6 @@ defmodule ChatWeb.ChatLive do
       )
       |> stream(:messages, refine_messages(messages))
 
-
     if connected?(socket) do
       :ok = PubSub.subscribe(@pubsub, "#{@topic}/#{channel.name}")
 
@@ -74,10 +73,7 @@ defmodule ChatWeb.ChatLive do
         <h1 class="text-xl font-bold">
           접속 현황
         </h1>
-        <ul
-
-          class="p-0 m-0.5 max-w-md divide-y divide-gray-200 dark:divide-gray-700 border-dashed border-zinc-150 border-2"
-        >
+        <ul class="p-0 m-0.5 max-w-md divide-y divide-gray-200 dark:divide-gray-700 border-dashed border-zinc-150 border-2">
           <li :for={{_id, user} <- @presences} class="border-none m-1">
             <div class="flex items-center space-x-4">
               <div class="flex-1 min-w-0">
@@ -134,7 +130,7 @@ defmodule ChatWeb.ChatLive do
               </div>
             </div>
           <% end %>
-          <%= if @loading_done do %>
+          <%= if !@loading_done do %>
             <div id="infinite-scroll-marker" phx-hook="InfiniteScroll"></div>
           <% end %>
         </div>
@@ -181,7 +177,7 @@ defmodule ChatWeb.ChatLive do
     socket =
       socket
       |> stream_insert_many_messages(:messages, messages)
-      |> assign(loading_done: length(messages) > 0)
+      |> assign(loading_done: length(messages) == 0)
 
     {:noreply, assign(socket, offset: new_offset, loading: false)}
   end
