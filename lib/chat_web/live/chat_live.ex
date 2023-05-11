@@ -117,6 +117,9 @@ defmodule ChatWeb.ChatLive do
               <span class="p-1">
                 <%= message.content %>
               </span>
+              <button class="ml-10 font-mono" phx-click="reply-added">
+                reply
+              </button>
             </div>
           </div>
           <%= if assigns.loading do %>
@@ -184,6 +187,10 @@ defmodule ChatWeb.ChatLive do
       |> assign(loading_done: length(messages) > 0)
 
     {:noreply, assign(socket, offset: new_offset, loading: false)}
+  end
+
+  def handle_event("reply-added", _payload, socket) do
+    {:noreply, socket}
   end
 
   @impl Phoenix.LiveView
