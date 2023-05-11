@@ -69,7 +69,7 @@ defmodule ChatWeb.ChatLive do
       </div>
     </div>
     <div class="flex">
-      <div class="p-1 m-1 border-2 border-dashed border-grey">
+      <div class="p-1 m-1 border-2 border-dashed border-grey h-min sticky top-0">
         <h1 class="text-xl font-bold">
           접속 현황
         </h1>
@@ -93,7 +93,12 @@ defmodule ChatWeb.ChatLive do
         <div class="sticky top-0 left-0 right-0">
           <.simple_form phx-submit="new-message" for={@form}>
             <div class="flex">
-              <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
+              <.input
+                field={@form[:content]}
+                phx-hook="InputCleanUp"
+                placeholder="Type here"
+                autocomplete="off"
+              />
               <button
                 class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                 type="submit"
@@ -107,10 +112,10 @@ defmodule ChatWeb.ChatLive do
           <div id="message-container" phx-update="stream">
             <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
               <div class="w-1" style={background_color(message.user.color)}></div>
-              <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
+              <span style="width: 140px;" class="inline-block bg-gray-200 rounded-3xl px-3 py-1">
                 <%= message.user.email %>
               </span>
-              <span class="p-1">
+              <span style="max-width: 350px;" class="p-1">
                 <%= message.content %>
               </span>
             </div>
