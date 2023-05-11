@@ -14,7 +14,9 @@ defmodule Chat.ChatGptClient do
         [
           {"Content-Type", "application/json"},
           {"Authorization", "Bearer #{token}"}
-        ]
+        ],
+        timeout: :infinity,
+        recv_timeout: :infinity
       )
 
     %{"choices" => choices} = Jason.decode!(body)
