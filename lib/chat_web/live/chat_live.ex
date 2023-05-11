@@ -34,7 +34,8 @@ defmodule ChatWeb.ChatLive do
         limit: @limit,
         offset: 0,
         loading_done: false,
-        loading: false
+        loading: false,
+        is_typing: false
       )
       |> stream(:messages, refine_messages(messages))
 
@@ -45,7 +46,7 @@ defmodule ChatWeb.ChatLive do
         self(),
         "#{@topic}/#{channel.name}",
         socket.assigns.current_user.id,
-        socket.assigns.current_user
+        %{user: socket.assigns.current_user, is_typing: false}
       )
     end
 
@@ -91,9 +92,22 @@ defmodule ChatWeb.ChatLive do
       </div>
       <div class="w-full m-1">
         <div class="sticky top-0 left-0 right-0">
+          <ul>
+            <li :for={{_user_id, user} <- @presences}>
+              <span class="status">
+                <%= user.email %>: <%= if user.is_typing, do: "👀", else: "🙈" %>
+              </span>
+            </li>
+          </ul>
           <.simple_form phx-submit="new-message" for={@form}>
             <div class="flex">
-              <.input field={@form[:content]} phx-hook="InputCleanUp" placeholder="Type here" />
+              <.input
+                field={@form[:content]}
+                phx-hook="InputCleanUp"
+                phx-change="message-typing"
+                phx-update="ignore"
+                placeholder="Type here"
+              />
               <button
                 class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                 type="submit"
@@ -162,6 +176,27 @@ defmodule ChatWeb.ChatLive do
     end
   end
 
+  def handle_event("message-typing", _params, socket) do
+    email = socket.assigns.current_user.email
+
+    if socket.assigns.is_typing do
+      Process.cancel_timer(self(), :typing_timeout)
+    else
+      PubSub.broadcast!(
+        @pubsub,
+        "#{@topic}/#{socket.assigns.channel.name}",
+        {:message_typing, email}
+      )
+
+      Process.send_after(self(), :typing_timeout, 2000)
+      IO.inspect(socket)
+    end
+
+    # Process.send_after(self(), :typing_timeout, 2000)
+
+    {:noreply, socket}
+  end
+
   def handle_event("load-more", _params, socket) do
     channel = socket.assigns.channel
     new_offset = socket.assigns.offset + @limit
@@ -205,6 +240,42 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
+  def handle_info({:message_typing, typing_user_email}, socket) do
+    email = socket.assigns.current_user.email
+
+    cond do
+      typing_user_email == email ->
+        IO.inspect("same user #{typing_user_email}, #{email}")
+        {:noreply, socket}
+
+      typing_user_email != email ->
+        IO.inspect("not same user #{typing_user_email}, #{email}")
+        current_user = socket.assigns.current_user
+
+        %{metas: [meta | _]} =
+          Presence.get_by_key(
+            "#{@topic}/#{socket.assigns.channel.name}",
+            current_user.id
+          )
+
+        new_meta = %{meta | is_typing: true}
+
+        Presence.update(
+          self(),
+          "#{@topic}/#{socket.assigns.channel.name}",
+          current_user.id,
+          new_meta
+        )
+
+        {:noreply, socket}
+    end
+  end
+
+  def handle_info(:typing_timeout, socket) do
+    IO.inspect("typing timeout")
+    {:noreply, socket}
+  end
+
   def handle_info(
         %{event: "presence_diff", payload: %{joins: joins, leaves: leaves}},
         socket
@@ -227,8 +298,10 @@ defmodule ChatWeb.ChatLive do
     Enum.into(presences, %{}, &refine_presence/1)
   end
 
-  defp refine_presence({id, %{metas: [user | _]}}) do
-    {id, Map.put(user, :color, user_color(user))}
+  defp refine_presence({id, %{metas: [meta | _]}}) do
+    user = meta.user
+    user = user |> Map.put(:is_typing, meta.is_typing) |> Map.put(:color, user_color(user))
+    {id, user}
   end
 
   defp refine_messages(messages) do
