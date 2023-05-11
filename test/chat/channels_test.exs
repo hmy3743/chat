@@ -5,14 +5,17 @@ defmodule Chat.ChannelsTest do
 
   describe "channels" do
     alias Chat.Channels.Channel
+    alias Chat.Repo
 
     import Chat.ChannelsFixtures
+    import Ecto.Query
 
     @invalid_attrs %{name: nil}
 
     test "list_channels/0 returns all channels" do
+      default_channels = Repo.all(from c in Channel, where: c.id in [1, 2])
       channel = channel_fixture()
-      assert Channels.list_channels() == [channel]
+      assert Channels.list_channels() == default_channels ++ [channel]
     end
 
     test "get_channel!/1 returns the channel with given id" do

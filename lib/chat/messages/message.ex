@@ -5,7 +5,9 @@ defmodule Chat.Messages.Message do
   schema "messages" do
     field :content, :string
     belongs_to :user, Chat.Accounts.User
-    belongs_to :channel, Chat.Channels.Channel
+    belongs_to :channel, Chat.Channels.Channel, define_field: false
+
+    field :channel_id, :integer, read_after_writes: true
     timestamps()
   end
 
