@@ -112,10 +112,10 @@ defmodule ChatWeb.ChatLive do
           <div id="message-container" phx-update="stream">
             <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
               <div class="w-1" style={background_color(message.user.color)}></div>
-              <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
+              <span style="width: 140px;" class="inline-block bg-gray-200 rounded-3xl px-3 py-1">
                 <%= message.user.email %>
               </span>
-              <span class="p-1">
+              <span style="max-width: 350px;" class="p-1">
                 <%= message.content %>
               </span>
             </div>
