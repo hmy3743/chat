@@ -4,11 +4,15 @@ defmodule ChatWeb.ChatLive do
   alias Phoenix.PubSub
   alias Chat.Messages.Message
   alias Chat.Messages
+  alias Chat.ChatGptClient
+  alias Chat.Accounts.User
+
   use ChatWeb, :live_view
 
   @pubsub Chat.PubSub
   @topic __MODULE__ |> Atom.to_string()
   @limit 30
+  @chatGPT %User{id: 0, email: "chatgpt@open.ai"}
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -34,7 +38,8 @@ defmodule ChatWeb.ChatLive do
         limit: @limit,
         offset: 0,
         loading_done: false,
-        loading: false
+        loading: false,
+        chat_gpt_token: ""
       )
       |> stream(:messages, refine_messages(messages))
 
@@ -56,6 +61,7 @@ defmodule ChatWeb.ChatLive do
   def render(assigns) do
     ~H"""
     <h1 class="text-4xl font-bold"># <%= @channel.name %></h1>
+    <.chat_gpt_token_input chat_gpt_token={@chat_gpt_token} />
     <div class="p-1">
       <label for="channels"><span class="font-mono font-semibold">Channels</span></label>
       <div id="channels">
@@ -160,6 +166,9 @@ defmodule ChatWeb.ChatLive do
           {:new_message, message, socket.assigns.current_user}
         )
 
+        if String.trim(socket.assigns.chat_gpt_token) != "",
+          do: send(self(), {__MODULE__, :gpt, message})
+
         {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
 
       {:error, changeset} ->
@@ -185,6 +194,11 @@ defmodule ChatWeb.ChatLive do
       |> assign(loading_done: length(messages) == 0)
 
     {:noreply, assign(socket, offset: new_offset, loading: false)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("update_chat_gpt_token", %{"value" => token}, socket) do
+    {:noreply, assign(socket, chat_gpt_token: token)}
   end
 
   @impl Phoenix.LiveView
@@ -220,6 +234,41 @@ defmodule ChatWeb.ChatLive do
       |> apply_joins(joins)
 
     {:noreply, socket}
+  end
+
+  def handle_info({__MODULE__, :gpt, message}, socket) do
+    reply = ChatGptClient.chat(socket.assigns.chat_gpt_token, message.content)
+
+    {:ok, message} =
+      %{"content" => reply}
+      |> Map.put("user_id", 0)
+      |> Map.put("channel_id", socket.assigns.channel.id)
+      |> Messages.create_message()
+
+    PubSub.broadcast!(
+      @pubsub,
+      "#{@topic}/#{socket.assigns.channel.name}",
+      {:new_message, message, @chatGPT}
+    )
+
+    {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
+  end
+
+  attr(:chat_gpt_token, :string, required: true)
+
+  def chat_gpt_token_input(assigns) do
+    ~H"""
+    <div class="m-1">
+      <label for="chatGTPToken" class="text-s"> ChatGPT token: </label>
+      <input
+        id="chatGTPToken"
+        value={@chat_gpt_token}
+        phx-blur="update_chat_gpt_token"
+        type="password"
+        class="shadow rounded border-2 border-black text-xs"
+      />
+    </div>
+    """
   end
 
   defp stream_insert_many_messages(socket, name, messages) do
