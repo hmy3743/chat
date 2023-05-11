@@ -30,13 +30,18 @@ defmodule Chat.Messages do
       from m in Message,
         order_by: [desc: m.id],
         preload: ^options.preload,
-        limit: ^options.limit,
         offset: ^options.offset
 
     query =
-      case(options.channel) do
+      case options.channel do
         %Channel{id: id} -> where(query, [m], m.channel_id == ^id)
         _ -> query
+      end
+
+    query =
+      case options.limit do
+        :infinit -> query
+        limit when is_integer(limit) -> limit(query, ^limit)
       end
 
     Repo.all(query)

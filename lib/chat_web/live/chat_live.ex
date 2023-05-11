@@ -4,11 +4,15 @@ defmodule ChatWeb.ChatLive do
   alias Phoenix.PubSub
   alias Chat.Messages.Message
   alias Chat.Messages
+  alias Chat.ChatGptClient
+  alias Chat.Accounts.User
+
   use ChatWeb, :live_view
 
   @pubsub Chat.PubSub
   @topic __MODULE__ |> Atom.to_string()
   @limit 30
+  @chatGPT %User{id: 0, email: "chatgpt@open.ai"}
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -36,7 +40,8 @@ defmodule ChatWeb.ChatLive do
         loading_done: false,
         loading: false,
         is_typing: false,
-        typing_users: []
+        typing_users: [],
+        chat_gpt_token: ""
       )
       |> stream(:messages, refine_messages(messages))
 
@@ -58,6 +63,7 @@ defmodule ChatWeb.ChatLive do
   def render(assigns) do
     ~H"""
     <h1 class="text-4xl font-bold"># <%= @channel.name %></h1>
+    <.chat_gpt_token_input chat_gpt_token={@chat_gpt_token} />
     <div class="p-1">
       <label for="channels"><span class="font-mono font-semibold">Channels</span></label>
       <div id="channels">
@@ -71,7 +77,7 @@ defmodule ChatWeb.ChatLive do
       </div>
     </div>
     <div class="flex">
-      <div class="p-1 m-1 border-2 border-dashed border-grey">
+      <div class="p-1 m-1 border-2 border-dashed border-grey h-min sticky top-0">
         <h1 class="text-xl font-bold">
           접속 현황
         </h1>
@@ -100,6 +106,7 @@ defmodule ChatWeb.ChatLive do
                 phx-update="ignore"
                 placeholder="Type here"
                 phx-hook="MessageInput"
+                autocomplete="off"
               />
               <button
                 class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
@@ -118,14 +125,16 @@ defmodule ChatWeb.ChatLive do
             </ul>
           <% end %>
         </div>
-        <div class="mt-5 overflow-scroll">
+        <div class="mt-5">
           <div id="message-container" phx-update="stream">
             <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
-              <div class="w-1" style={background_color(message.user.color)}></div>
-              <span class="inline-block bg-gray-200 rounded-full px-3 py-1">
-                <%= message.user.email %>
-              </span>
-              <span class="p-1">
+              <div class="flex max-h-8">
+                <div class="shrink-0 w-1 min-w-1" style={background_color(message.user.color)}></div>
+                <span class="shrink-0 bg-gray-200 rounded-3xl px-2 py-1 truncate w-36">
+                  <%= message.user.email %>
+                </span>
+              </div>
+              <span class="break-all p-1">
                 <%= message.content %>
               </span>
             </div>
@@ -169,6 +178,9 @@ defmodule ChatWeb.ChatLive do
           "#{@topic}/#{socket.assigns.channel.name}",
           {:new_message, message, socket.assigns.current_user}
         )
+
+        if String.trim(socket.assigns.chat_gpt_token) != "",
+          do: send(self(), {__MODULE__, :gpt, message})
 
         {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
 
@@ -222,6 +234,11 @@ defmodule ChatWeb.ChatLive do
       |> assign(loading_done: length(messages) == 0)
 
     {:noreply, assign(socket, offset: new_offset, loading: false)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("update_chat_gpt_token", %{"value" => token}, socket) do
+    {:noreply, assign(socket, chat_gpt_token: token)}
   end
 
   @impl Phoenix.LiveView
@@ -286,6 +303,42 @@ defmodule ChatWeb.ChatLive do
       )
 
     {:noreply, socket}
+  end
+
+
+  def handle_info({__MODULE__, :gpt, message}, socket) do
+    reply = ChatGptClient.chat(socket.assigns.chat_gpt_token, message.content)
+
+    {:ok, message} =
+      %{"content" => reply}
+      |> Map.put("user_id", 0)
+      |> Map.put("channel_id", socket.assigns.channel.id)
+      |> Messages.create_message()
+
+    PubSub.broadcast!(
+      @pubsub,
+      "#{@topic}/#{socket.assigns.channel.name}",
+      {:new_message, message, @chatGPT}
+    )
+
+    {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
+  end
+
+  attr(:chat_gpt_token, :string, required: true)
+
+  def chat_gpt_token_input(assigns) do
+    ~H"""
+    <div class="m-1">
+      <label for="chatGTPToken" class="text-s"> ChatGPT token: </label>
+      <input
+        id="chatGTPToken"
+        value={@chat_gpt_token}
+        phx-blur="update_chat_gpt_token"
+        type="password"
+        class="shadow rounded border-2 border-black text-xs"
+      />
+    </div>
+    """
   end
 
   defp stream_insert_many_messages(socket, name, messages) do
