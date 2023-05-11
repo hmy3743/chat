@@ -35,7 +35,8 @@ defmodule ChatWeb.ChatLive do
         offset: 0,
         loading_done: false,
         loading: false,
-        is_typing: false
+        is_typing: false,
+        typing_users: []
       )
       |> stream(:messages, refine_messages(messages))
 
@@ -92,21 +93,13 @@ defmodule ChatWeb.ChatLive do
       </div>
       <div class="w-full m-1">
         <div class="sticky top-0 left-0 right-0">
-          <ul>
-            <li :for={{_user_id, user} <- @presences}>
-              <span class="status">
-                <%= user.email %>: <%= if user.is_typing, do: "👀", else: "🙈" %>
-              </span>
-            </li>
-          </ul>
           <.simple_form phx-submit="new-message" for={@form}>
             <div class="flex">
               <.input
                 field={@form[:content]}
-                phx-hook="InputCleanUp"
-                phx-change="message-typing"
                 phx-update="ignore"
                 placeholder="Type here"
+                phx-hook="MessageInput"
               />
               <button
                 class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
@@ -116,6 +109,14 @@ defmodule ChatWeb.ChatLive do
               </button>
             </div>
           </.simple_form>
+          <%= if @typing_users |> length > 0 do %>
+            <ul>
+              <%= @typing_users
+              |> Enum.map(fn user -> user.email end)
+              |> Enum.join(", ")
+              |> Kernel.<>(" is typing...") %>
+            </ul>
+          <% end %>
         </div>
         <div class="mt-5 overflow-scroll">
           <div id="message-container" phx-update="stream">
@@ -176,24 +177,30 @@ defmodule ChatWeb.ChatLive do
     end
   end
 
-  def handle_event("message-typing", _params, socket) do
-    email = socket.assigns.current_user.email
-
-    if socket.assigns.is_typing do
-      Process.cancel_timer(self(), :typing_timeout)
-    else
+  def handle_event("start_typing", _, socket) do
+    # is_typing 플래그가 false라면, true로 바꾸고 방송을 한다.
+    if socket.assigns.is_typing == false do
       PubSub.broadcast!(
         @pubsub,
         "#{@topic}/#{socket.assigns.channel.name}",
-        {:message_typing, email}
+        {:start_typing, socket.assigns.current_user}
       )
-
-      Process.send_after(self(), :typing_timeout, 2000)
-      IO.inspect(socket)
     end
 
-    # Process.send_after(self(), :typing_timeout, 2000)
+    socket = socket |> assign(is_typing: true)
+    {:noreply, socket}
+  end
 
+  def handle_event("end_typing", _, socket) do
+    if socket.assigns.is_typing == true do
+      PubSub.broadcast!(
+        @pubsub,
+        "#{@topic}/#{socket.assigns.channel.name}",
+        {:end_typing, socket.assigns.current_user}
+      )
+    end
+
+    socket = socket |> assign(is_typing: false)
     {:noreply, socket}
   end
 
@@ -230,6 +237,7 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
+  @impl Phoenix.LiveView
   def handle_info({:new_message, message, sender}, socket) do
     message = Map.put(message, :user, sender)
 
@@ -240,42 +248,7 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
-  def handle_info({:message_typing, typing_user_email}, socket) do
-    email = socket.assigns.current_user.email
-
-    cond do
-      typing_user_email == email ->
-        IO.inspect("same user #{typing_user_email}, #{email}")
-        {:noreply, socket}
-
-      typing_user_email != email ->
-        IO.inspect("not same user #{typing_user_email}, #{email}")
-        current_user = socket.assigns.current_user
-
-        %{metas: [meta | _]} =
-          Presence.get_by_key(
-            "#{@topic}/#{socket.assigns.channel.name}",
-            current_user.id
-          )
-
-        new_meta = %{meta | is_typing: true}
-
-        Presence.update(
-          self(),
-          "#{@topic}/#{socket.assigns.channel.name}",
-          current_user.id,
-          new_meta
-        )
-
-        {:noreply, socket}
-    end
-  end
-
-  def handle_info(:typing_timeout, socket) do
-    IO.inspect("typing timeout")
-    {:noreply, socket}
-  end
-
+  @impl Phoenix.LiveView
   def handle_info(
         %{event: "presence_diff", payload: %{joins: joins, leaves: leaves}},
         socket
@@ -284,6 +257,33 @@ defmodule ChatWeb.ChatLive do
       socket
       |> apply_leaves(leaves)
       |> apply_joins(joins)
+
+    {:noreply, socket}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info({:start_typing, user}, socket) do
+    typing_users = [user | socket.assigns.typing_users]
+
+    socket =
+      socket
+      |> assign(typing_users: typing_users)
+
+    {:noreply, socket}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info({:end_typing, user}, socket) do
+    typing_users =
+      socket.assigns.typing_users
+      |> Enum.filter(fn usr -> usr.email != user.email end)
+
+    socket =
+      socket
+      |> assign(
+        typing_users: typing_users,
+        is_typing: false
+      )
 
     {:noreply, socket}
   end
