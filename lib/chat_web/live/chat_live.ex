@@ -33,7 +33,7 @@ defmodule ChatWeb.ChatLive do
         channels: channels,
         limit: @limit,
         offset: 0,
-        loading: true
+        loading: false
       )
       |> stream(:messages, refine_messages(messages))
 
@@ -178,7 +178,7 @@ defmodule ChatWeb.ChatLive do
       socket
       |> stream_insert_many_messages(:messages, messages)
 
-    {:noreply, assign(socket, loading: false)}
+    {:noreply, assign(socket, offset: new_offset, loading: false)}
   end
 
   @impl Phoenix.LiveView
