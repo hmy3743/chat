@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/hmy3743/chat/branch/main/graph/badge.svg?token=QX2YBAZNLO)](https://codecov.io/gh/hmy3743/chat)
+
 # Chat
 
 To start your Phoenix server:
