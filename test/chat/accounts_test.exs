@@ -1,5 +1,5 @@
 defmodule Chat.AccountsTest do
-  use Chat.DataCase
+  use Chat.DataCase, async: true
 
   alias Chat.Accounts
 
