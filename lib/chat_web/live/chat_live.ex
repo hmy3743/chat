@@ -305,7 +305,6 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
-
   def handle_info({__MODULE__, :gpt, message}, socket) do
     reply = ChatGptClient.chat(socket.assigns.chat_gpt_token, message.content)
 
