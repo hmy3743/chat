@@ -9,7 +9,8 @@ defmodule Chat.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      test_coverage: [tool: LcovEx, output: "cover"]
     ]
   end
 
@@ -52,7 +53,8 @@ defmodule Chat.MixProject do
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
-      {:httpoison, "~> 2.0"}
+      {:httpoison, "~> 2.0"},
+      {:lcov_ex, "~> 0.3", only: [:dev, :test], runtime: false}
     ]
   end
 
