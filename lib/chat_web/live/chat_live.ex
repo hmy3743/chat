@@ -212,7 +212,7 @@ defmodule ChatWeb.ChatLive do
         )
 
         if String.trim(socket.assigns.chat_gpt_token) != "",
-          do: send(self(), {__MODULE__, :gpt, message})
+          do: spawn_gpt_client(socket.assigns.chat_gpt_token, message.content)
 
         {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
 
@@ -337,9 +337,7 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
-  def handle_info({__MODULE__, :gpt, message}, socket) do
-    reply = ChatGptClient.chat(socket.assigns.chat_gpt_token, message.content)
-
+  def handle_info({__MODULE__, :gpt, reply}, socket) do
     {:ok, message} =
       %{"content" => reply}
       |> Map.put("user_id", 0)
@@ -353,6 +351,15 @@ defmodule ChatWeb.ChatLive do
     )
 
     {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
+  end
+
+  defp spawn_gpt_client(token, content) do
+    pid = self()
+
+    spawn(fn ->
+      reply = ChatGptClient.chat(token, content)
+      send(pid, {__MODULE__, :gpt, reply})
+    end)
   end
 
   defp stream_insert_many_messages(socket, name, messages) do
