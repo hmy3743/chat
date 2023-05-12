@@ -1,5 +1,5 @@
 defmodule Chat.MessagesTest do
-  use Chat.DataCase
+  use Chat.DataCase, async: true
 
   alias Chat.Messages
   alias Chat.Messages.Message
