@@ -127,36 +127,68 @@ defmodule ChatWeb.ChatLive do
         </div>
         <div class="mt-5">
           <div id="message-container" phx-update="stream">
-            <div :for={{id, message} <- @streams.messages} id={id} class="m-1 p-1 shadow-lg flex">
-              <div class="flex max-h-8">
-                <div class="shrink-0 w-1 min-w-1" style={background_color(message.user.color)}></div>
-                <span class="shrink-0 bg-gray-200 rounded-3xl px-2 py-1 truncate w-36">
-                  <%= message.user.email %>
-                </span>
-              </div>
-              <span class="break-all p-1">
-                <%= message.content %>
-              </span>
-            </div>
+            <.message_card :for={{id, message} <- @streams.messages} id={id} message={message} />
           </div>
-          <%= if assigns.loading do %>
-            <!-- Skeleton Loading -->
-            <div :for={_ <- 1..30 |> Enum.to_list()} class="p-2">
-              <div class="animate-pulse flex space-x-4">
-                <div class="flex-1 space-y-6 py-1">
-                  <div class="space-y-3">
-                    <div class="grid grid-cols-3 gap-4">
-                      <div class="h-2 bg-slate-400 rounded col-span-1"></div>
-                      <div class="h-2 bg-slate-400 rounded col-span-2"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          <% end %>
+          <.skeleton_loading display={@loading} />
           <%= if !@loading_done do %>
             <div id="infinite-scroll-marker" phx-hook="InfiniteScroll"></div>
           <% end %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr(:chat_gpt_token, :string, required: true)
+
+  def chat_gpt_token_input(assigns) do
+    ~H"""
+    <div class="m-1">
+      <label for="chatGTPToken" class="text-s"> ChatGPT token: </label>
+      <input
+        id="chatGTPToken"
+        value={@chat_gpt_token}
+        phx-blur="update_chat_gpt_token"
+        type="password"
+        class="shadow rounded border-2 border-black text-xs"
+      />
+    </div>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :message, Chat.Messages.Message, required: true
+
+  def message_card(assigns) do
+    ~H"""
+    <div id={@id} class="m-1 p-1 shadow-lg flex">
+      <div class="flex max-h-8">
+        <div class="shrink-0 w-1 min-w-1" style={background_color(@message.user.color)}></div>
+        <span class="shrink-0 bg-gray-200 rounded-3xl px-2 py-1 truncate w-36">
+          <%= @message.user.email %>
+        </span>
+      </div>
+      <span class="break-all p-1">
+        <%= @message.content %>
+      </span>
+    </div>
+    """
+  end
+
+  attr :display, :boolean, required: true
+  attr :count, :integer, default: 30
+
+  def skeleton_loading(assigns) do
+    ~H"""
+    <div :for={_ <- 1..@count} :if={@display} class="p-2">
+      <div class="animate-pulse flex space-x-4">
+        <div class="flex-1 space-y-6 py-1">
+          <div class="space-y-3">
+            <div class="grid grid-cols-3 gap-4">
+              <div class="h-2 bg-slate-400 rounded col-span-1"></div>
+              <div class="h-2 bg-slate-400 rounded col-span-2"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -321,23 +353,6 @@ defmodule ChatWeb.ChatLive do
     )
 
     {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
-  end
-
-  attr(:chat_gpt_token, :string, required: true)
-
-  def chat_gpt_token_input(assigns) do
-    ~H"""
-    <div class="m-1">
-      <label for="chatGTPToken" class="text-s"> ChatGPT token: </label>
-      <input
-        id="chatGTPToken"
-        value={@chat_gpt_token}
-        phx-blur="update_chat_gpt_token"
-        type="password"
-        class="shadow rounded border-2 border-black text-xs"
-      />
-    </div>
-    """
   end
 
   defp stream_insert_many_messages(socket, name, messages) do
