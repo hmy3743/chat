@@ -48,4 +48,14 @@ defmodule ChatWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug ChatWeb.Router
+  plug :count_view
+
+  defp count_view(conn, _opts) do
+    if conn.status == 200 do
+      path = "/" <> Enum.join(conn.path_info, "/")
+      Chat.ViewCounter.bump(path)
+    end
+
+    conn
+  end
 end
