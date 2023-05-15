@@ -15,16 +15,8 @@ defmodule ChatWeb.ChatLive do
   @chatGPT %User{id: 0, email: "chatgpt@open.ai"}
 
   @impl Phoenix.LiveView
-  def mount(params, _session, socket) do
-    channel =
-      params
-      |> Map.get("channel", "default")
-      |> Channels.get_channel_by_name!()
-
+  def mount(_params, _session, socket) do
     form = %Message{} |> Messages.change_message() |> to_form()
-
-    messages =
-      Messages.list_messages(channel: channel, offset: 0, limit: @limit, preload: [:user])
 
     channels = Channels.list_channels()
 
@@ -32,20 +24,24 @@ defmodule ChatWeb.ChatLive do
       socket
       |> assign(
         form: form,
-        presences: refine_presences(Presence.list("#{@topic}/#{channel.name}")),
-        channel: channel,
         channels: channels,
-        limit: @limit,
-        offset: 0,
-        loading_done: false,
-        loading: false,
-        is_typing: false,
-        typing_users: [],
         chat_gpt_token: ""
       )
-      |> stream(:messages, refine_messages(messages))
+
+    {:ok, socket}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_params(%{"channel" => channel_name}, _uri, socket) do
+    channel = Channels.get_channel_by_name!(channel_name)
 
     if connected?(socket) do
+      # unsubscribe previous channel
+      if prv_channel = Map.get(socket.assigns, :channel) do
+        PubSub.unsubscribe(@pubsub, "#{@topic}/#{prv_channel.name}")
+        Presence.untrack(self(), "#{@topic}/#{prv_channel.name}", socket.assigns.current_user.id)
+      end
+
       :ok = PubSub.subscribe(@pubsub, "#{@topic}/#{channel.name}")
 
       Presence.track(
@@ -56,7 +52,24 @@ defmodule ChatWeb.ChatLive do
       )
     end
 
-    {:ok, socket}
+    messages =
+      Messages.list_messages(channel: channel, offset: 0, limit: @limit, preload: [:user])
+
+    socket =
+      socket
+      |> assign(
+        channel: channel,
+        presences: refine_presences(Presence.list("#{@topic}/#{channel.name}")),
+        limit: @limit,
+        offset: 0,
+        loading_done: false,
+        loading: false,
+        is_typing: false,
+        typing_users: []
+      )
+      |> stream(:messages, refine_messages(messages), reset: true)
+
+    {:noreply, socket}
   end
 
   @impl Phoenix.LiveView
@@ -69,7 +82,7 @@ defmodule ChatWeb.ChatLive do
       <div id="channels">
         <.link
           :for={channel <- @channels}
-          navigate={~p"/chat/#{channel.name}"}
+          patch={~p"/chat/#{channel.name}"}
           class="inline-block bg-blue-200 rounded px-1 m-0.5"
         >
           <%= channel.name %>
