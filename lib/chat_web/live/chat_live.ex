@@ -154,7 +154,7 @@ defmodule ChatWeb.ChatLive do
     """
   end
 
-  attr(:chat_gpt_token, :string, required: true)
+  attr :chat_gpt_token, :string, required: true
 
   def chat_gpt_token_input(assigns) do
     ~H"""
@@ -177,7 +177,11 @@ defmodule ChatWeb.ChatLive do
   def message_card(assigns) do
     ~H"""
     <div id={@id}>
-      <div class="m-1 p-1 shadow-lg flex" phx-click="open-thread" phx-value-message_id={@message.id}>
+      <div
+        class="m-1 p-1 shadow-lg flex hover:bg-gray-100"
+        phx-click="open-thread"
+        phx-value-message_id={@message.id}
+      >
         <div class="flex max-h-8">
           <div class="shrink-0 w-1 min-w-1" style={background_color(@message.user.color)}></div>
           <span class="shrink-0 bg-gray-200 rounded-3xl px-2 py-1 truncate w-36">
