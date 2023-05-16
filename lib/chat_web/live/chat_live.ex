@@ -114,22 +114,20 @@ defmodule ChatWeb.ChatLive do
       </div>
       <div class="w-full m-1">
         <div class="sticky top-0 left-0 right-0">
-          <.simple_form phx-submit="new-message" for={@form}>
-            <div class="flex">
-              <.input
-                field={@form[:content]}
-                phx-update="ignore"
-                placeholder="Type here"
-                phx-hook="MessageInput"
-                autocomplete="off"
-              />
-              <button
-                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                type="submit"
-              >
-                Submit
-              </button>
-            </div>
+          <.simple_form phx-submit="new-message" for={@form} class="flex">
+            <.input
+              field={@form[:content]}
+              phx-update="ignore"
+              placeholder="Type here"
+              phx-hook="MessageInput"
+              autocomplete="off"
+            />
+            <button
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              type="submit"
+            >
+              Submit
+            </button>
           </.simple_form>
           <%= if @typing_users |> length > 0 do %>
             <ul>
@@ -154,7 +152,7 @@ defmodule ChatWeb.ChatLive do
     """
   end
 
-  attr :chat_gpt_token, :string, required: true
+  attr(:chat_gpt_token, :string, required: true)
 
   def chat_gpt_token_input(assigns) do
     ~H"""
@@ -171,8 +169,8 @@ defmodule ChatWeb.ChatLive do
     """
   end
 
-  attr :id, :string, required: true
-  attr :message, Chat.Messages.Message, required: true
+  attr(:id, :string, required: true)
+  attr(:message, Chat.Messages.Message, required: true)
 
   def message_card(assigns) do
     ~H"""
@@ -225,7 +223,7 @@ defmodule ChatWeb.ChatLive do
     """
   end
 
-  attr :sub_message, Chat.SubMessages.SubMessage, required: true
+  attr(:sub_message, Chat.SubMessages.SubMessage, required: true)
 
   def sub_message(assigns) do
     ~H"""
@@ -243,8 +241,8 @@ defmodule ChatWeb.ChatLive do
     """
   end
 
-  attr :display, :boolean, required: true
-  attr :count, :integer, default: 30
+  attr(:display, :boolean, required: true)
+  attr(:count, :integer, default: 30)
 
   def skeleton_loading(assigns) do
     ~H"""
