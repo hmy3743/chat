@@ -55,6 +55,29 @@ defmodule ChatWeb do
         layout: {ChatWeb.Layouts, :app}
 
       unquote(html_helpers())
+
+      on_mount {__MODULE__, :view_count}
+
+      def on_mount(:view_count, _params, _session, socket) do
+        socket =
+          case connected?(socket) do
+            true ->
+              attach_hook(socket, :view_count, :handle_params, fn
+                _param, uri, socket ->
+                  if connected?(socket) do
+                    [_, path] = Regex.run(~r/https?:\/\/[^\/]+([^?]*).*/, uri)
+                    Chat.ViewCounter.bump(path)
+                  end
+
+                  {:cont, socket}
+              end)
+
+            _ ->
+              socket
+          end
+
+        {:cont, socket}
+      end
     end
   end
 
