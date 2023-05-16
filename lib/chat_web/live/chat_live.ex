@@ -191,10 +191,9 @@ defmodule ChatWeb.ChatLive do
       <div :if={@message.is_thread_open} class="border ml-8">
         <div class="relative h-5">
           <a
-            class="absolute right-1 -top-2 text-2xl"
+            class="absolute right-1 -top-2 text-2xl cursor-pointer"
             phx-click="close-thread"
             phx-value-message_id={@message.id}
-            href="#none"
           >
             &times
           </a>
