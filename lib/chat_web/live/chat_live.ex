@@ -1,4 +1,5 @@
 defmodule ChatWeb.ChatLive do
+  alias Chat.SubMessages
   alias Chat.Channels
   alias ChatWeb.Presence
   alias Phoenix.PubSub
@@ -32,7 +33,8 @@ defmodule ChatWeb.ChatLive do
   end
 
   @impl Phoenix.LiveView
-  def handle_params(%{"channel" => channel_name}, _uri, socket) do
+  def handle_params(param, _uri, socket) do
+    channel_name = Map.get(param, "channel", "default")
     channel = Channels.get_channel_by_name!(channel_name)
 
     if connected?(socket) do
@@ -174,15 +176,65 @@ defmodule ChatWeb.ChatLive do
 
   def message_card(assigns) do
     ~H"""
-    <div id={@id} class="m-1 p-1 shadow-lg flex">
+    <div id={@id}>
+      <div class="m-1 p-1 shadow-lg flex" phx-click="open-thread" phx-value-message_id={@message.id}>
+        <div class="flex max-h-8">
+          <div class="shrink-0 w-1 min-w-1" style={background_color(@message.user.color)}></div>
+          <span class="shrink-0 bg-gray-200 rounded-3xl px-2 py-1 truncate w-36">
+            <%= @message.user.email %>
+          </span>
+        </div>
+        <span class="break-all p-1">
+          <%= @message.content %>
+        </span>
+      </div>
+      <div :if={@message.is_thread_open} class="border ml-8">
+        <div class="relative h-5">
+          <a
+            class="absolute right-1 -top-2 text-2xl"
+            phx-click="close-thread"
+            phx-value-message_id={@message.id}
+            href="#none"
+          >
+            &times
+          </a>
+        </div>
+        <.simple_form
+          class="flex items-center bg-white border border-gray-300 rounded-lg p-2"
+          for={@message.sub_message_form}
+          phx-submit="new-sub_message"
+          phx-value-message_id={@message.id}
+        >
+          <.input
+            id={"sub_message_form_input-#{@message.id}"}
+            type="text"
+            placeholder="메시지를 입력하세요"
+            class="grow px-2 py-1 mr-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+            field={@message.sub_message_form[:content]}
+          />
+          <button class="min-w-fit px-2 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500">
+            Submit
+          </button>
+        </.simple_form>
+        <.sub_message :for={sub_message <- @message.sub_messages} sub_message={sub_message} />
+      </div>
+    </div>
+    """
+  end
+
+  attr :sub_message, Chat.SubMessages.SubMessage, required: true
+
+  def sub_message(assigns) do
+    ~H"""
+    <div class="m-1 p-1 shadow-lg flex">
       <div class="flex max-h-8">
-        <div class="shrink-0 w-1 min-w-1" style={background_color(@message.user.color)}></div>
+        <div class="shrink-0 w-1 min-w-1" style={background_color(@sub_message.user.color)}></div>
         <span class="shrink-0 bg-gray-200 rounded-3xl px-2 py-1 truncate w-36">
-          <%= @message.user.email %>
+          <%= @sub_message.user.email %>
         </span>
       </div>
       <span class="break-all p-1">
-        <%= @message.content %>
+        <%= @sub_message.content %>
       </span>
     </div>
     """
@@ -284,6 +336,54 @@ defmodule ChatWeb.ChatLive do
   @impl Phoenix.LiveView
   def handle_event("update_chat_gpt_token", %{"value" => token}, socket) do
     {:noreply, assign(socket, chat_gpt_token: token)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("open-thread", %{"message_id" => message_id}, socket) do
+    message =
+      message_id
+      |> Messages.get_message!()
+      |> Chat.Repo.preload([:user, sub_messages: :user])
+      |> refine_message()
+      |> Map.put(:is_thread_open, true)
+
+    socket = stream_insert(socket, :messages, message)
+
+    {:noreply, socket}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event(
+        "new-sub_message",
+        %{"sub_message" => sub_message, "message_id" => message_id},
+        socket
+      ) do
+    sub_message
+    |> put_in(["user_id"], socket.assigns.current_user.id)
+    |> put_in(["message_id"], message_id)
+    |> SubMessages.create_sub_message()
+
+    message =
+      message_id
+      |> Messages.get_message!()
+      |> Chat.Repo.preload([:user, sub_messages: :user])
+      |> refine_message()
+
+    socket = stream_insert(socket, :messages, message)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("close-thread", %{"message_id" => message_id}, socket) do
+    message =
+      message_id
+      |> Messages.get_message!()
+      |> Chat.Repo.preload([:user])
+      |> refine_message()
+
+    socket = stream_insert(socket, :messages, message)
+
+    {:noreply, socket}
   end
 
   @impl Phoenix.LiveView
@@ -396,7 +496,25 @@ defmodule ChatWeb.ChatLive do
   end
 
   defp refine_message(message) do
-    update_in(message.user, &Map.put(&1, :color, user_color(&1)))
+    form =
+      %Chat.SubMessages.SubMessage{}
+      |> Chat.SubMessages.change_sub_message()
+      |> to_form()
+
+    %{user: user} = message
+
+    message
+    |> put_in([Access.key!(:user), Access.key!(:color)], user_color(user))
+    |> put_in([Access.key!(:sub_message_form)], form)
+    |> update_in([Access.key!(:sub_messages)], fn
+      sub_messages when is_list(sub_messages) -> Enum.map(sub_messages, &refine_sub_message/1)
+      sub_messages -> sub_messages
+    end)
+  end
+
+  defp refine_sub_message(sub_message) do
+    sub_message
+    |> put_in([Access.key!(:user), Access.key!(:color)], user_color(sub_message.user))
   end
 
   defp apply_leaves(socket, leaves) do

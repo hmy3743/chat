@@ -1,13 +1,18 @@
 defmodule Chat.Messages.Message do
   use Ecto.Schema
   import Ecto.Changeset
+  alias Chat.SubMessages.SubMessage
 
   schema "messages" do
     field :content, :string
     belongs_to :user, Chat.Accounts.User
     belongs_to :channel, Chat.Channels.Channel, define_field: false
-
     field :channel_id, :integer, read_after_writes: true
+    has_many :sub_messages, SubMessage
+
+    field :sub_message_form, :any, virtual: true
+    field :is_thread_open, :boolean, virtual: true, default: false
+
     timestamps()
   end
 
