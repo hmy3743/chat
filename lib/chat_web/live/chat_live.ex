@@ -59,7 +59,7 @@ defmodule ChatWeb.ChatLive do
         channel: channel,
         offset: 0,
         limit: @limit,
-        preload: [:user, {:last_sub_message, :user}]
+        preload: [:user, last_sub_message: :user]
       )
 
     socket =
@@ -340,7 +340,7 @@ defmodule ChatWeb.ChatLive do
         channel: channel,
         limit: @limit,
         offset: new_offset,
-        preload: [:user]
+        preload: [:user, last_sub_message: :user]
       )
 
     socket =
@@ -396,7 +396,7 @@ defmodule ChatWeb.ChatLive do
     message =
       message_id
       |> Messages.get_message!()
-      |> Chat.Repo.preload([:user])
+      |> Chat.Repo.preload([:user, last_sub_message: :user])
       |> refine_message()
 
     socket = stream_insert(socket, :messages, message)
