@@ -118,7 +118,7 @@ defmodule ChatWeb.ChatLive do
         </ul>
       </div>
       <div class="w-full m-1">
-        <div class="sticky top-0 left-0 right-0">
+        <div class="sticky top-0 left-0 right-0 z-20">
           <.simple_form phx-submit="new-message" for={@form} class="flex">
             <.input
               field={@form[:content]}
@@ -332,23 +332,24 @@ defmodule ChatWeb.ChatLive do
   end
 
   def handle_event("load-more", _params, socket) do
-    channel = socket.assigns.channel
-    new_offset = socket.assigns.offset + @limit
+    view = self()
 
-    messages =
-      Messages.list_messages(
-        channel: channel,
-        limit: @limit,
-        offset: new_offset,
-        preload: [:user, last_sub_message: :user]
-      )
+    Task.start(fn ->
+      channel = socket.assigns.channel
+      new_offset = socket.assigns.offset + @limit
 
-    socket =
-      socket
-      |> stream_insert_many_messages(:messages, messages)
-      |> assign(loading_done: length(messages) == 0)
+      messages =
+        Messages.list_messages(
+          channel: channel,
+          limit: @limit,
+          offset: new_offset,
+          preload: [:user, last_sub_message: :user]
+        )
 
-    {:noreply, assign(socket, offset: new_offset, loading: false)}
+      send(view, {:after_load_more, %{messages: messages, offset: new_offset}})
+    end)
+
+    {:noreply, assign(socket, loading: true)}
   end
 
   @impl Phoenix.LiveView
@@ -437,6 +438,16 @@ defmodule ChatWeb.ChatLive do
       socket
       |> apply_leaves(leaves)
       |> apply_joins(joins)
+
+    {:noreply, socket}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info({:after_load_more, %{messages: messages, offset: offset}}, socket) do
+    socket =
+      socket
+      |> assign(loading_done: length(messages) == 0, offset: offset, loading: false)
+      |> stream_insert_many_messages(:messages, messages)
 
     {:noreply, socket}
   end
