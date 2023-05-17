@@ -55,7 +55,12 @@ defmodule ChatWeb.ChatLive do
     end
 
     messages =
-      Messages.list_messages(channel: channel, offset: 0, limit: @limit, preload: [:user])
+      Messages.list_messages(
+        channel: channel,
+        offset: 0,
+        limit: @limit,
+        preload: [:user, {:last_sub_message, :user}]
+      )
 
     socket =
       socket
@@ -176,7 +181,7 @@ defmodule ChatWeb.ChatLive do
     ~H"""
     <div id={@id}>
       <div
-        class="m-1 p-1 shadow-lg flex hover:bg-gray-100"
+        class="m-1 p-1 shadow-lg flex rounded border bg-white hover:bg-gray-100 z-10 relative"
         phx-click="open-thread"
         phx-value-message_id={@message.id}
       >
@@ -189,6 +194,18 @@ defmodule ChatWeb.ChatLive do
         <span class="break-all p-1">
           <%= @message.content %>
         </span>
+      </div>
+      <div
+        :if={!@message.is_thread_open and @message.last_sub_message}
+        class="ml-8 -mt-2 h-fit rounded border bg-white shadow-lg z-0 relative"
+      >
+        <span
+          class="text-sm border rounded bg-gray-200 truncate w-36"
+          style={border_color(@message.user.color)}
+        >
+          <%= @message.last_sub_message.user.email %>
+        </span>
+        <span class="text-sm ml-1"><%= @message.last_sub_message.content %></span>
       </div>
       <div :if={@message.is_thread_open} class="border ml-8">
         <div class="relative h-5">
@@ -542,5 +559,9 @@ defmodule ChatWeb.ChatLive do
 
   defp background_color(color) do
     "background-color: rgba(#{color.r}, #{color.g}, #{color.b}, #{color.a})"
+  end
+
+  defp border_color(color) do
+    "border-color: rgba(#{color.r}, #{color.g}, #{color.b}, #{color.a})"
   end
 end
