@@ -24,6 +24,10 @@ defmodule Chat.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import Chat.DataCase
+
+      setup context do
+        Chat.FixtureSetter.setup(context)
+      end
     end
   end
 

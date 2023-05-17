@@ -3,10 +3,6 @@ defmodule Chat.SubMessagesTest do
 
   alias Chat.SubMessages
 
-  setup context do
-    Chat.FixtureSetter.setup(context)
-  end
-
   describe "sub_messages" do
     alias Chat.SubMessages.SubMessage
 
