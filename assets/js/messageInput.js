@@ -39,9 +39,5 @@ export default MessageInput = {
         // delay for timeouts
       })(HardCodedDelay)
     );
-  },
-
-  updated() {
-    this.el.value = "";
-  },
+  }
 };
