@@ -197,7 +197,7 @@ defmodule ChatWeb.ChatLive do
       </div>
       <div
         :if={!@message.is_thread_open and @message.last_sub_message}
-        class="ml-8 -mt-2 h-fit rounded border bg-white shadow-lg z-0 relative"
+        class="ml-8 -mt-2 h-fit rounded border bg-white shadow-lg z-0 relative flex"
       >
         <span
           class="text-sm border rounded bg-gray-200 truncate w-36"
@@ -205,7 +205,7 @@ defmodule ChatWeb.ChatLive do
         >
           <%= @message.last_sub_message.user.email %>
         </span>
-        <span class="text-sm ml-1"><%= @message.last_sub_message.content %></span>
+        <span class="text-sm ml-1 truncate"><%= @message.last_sub_message.content %></span>
       </div>
       <div :if={@message.is_thread_open} class="border ml-8">
         <div class="relative h-5">
@@ -384,7 +384,7 @@ defmodule ChatWeb.ChatLive do
     message =
       message_id
       |> Messages.get_message!()
-      |> Chat.Repo.preload([:user, sub_messages: :user])
+      |> Chat.Repo.preload([:user, sub_messages: :user, last_sub_message: :user])
       |> refine_message()
 
     socket = stream_insert(socket, :messages, message)
