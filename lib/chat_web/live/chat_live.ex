@@ -420,7 +420,7 @@ defmodule ChatWeb.ChatLive do
 
   @impl Phoenix.LiveView
   def handle_info({:new_message, message, sender}, socket) do
-    message = Map.put(message, :user, sender)
+    message = message |> Map.put(:user, sender) |> Map.put(:last_sub_message, nil)
 
     socket =
       socket
