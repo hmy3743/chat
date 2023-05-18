@@ -479,7 +479,7 @@ defmodule ChatWeb.ChatLive do
     {:noreply, socket}
   end
 
-  def handle_info({__MODULE__, :gpt, reply}, socket) do
+  def handle_info({__MODULE__, :gpt, {:ok, _} = reply}, socket) do
     {:ok, message} =
       %{"content" => reply}
       |> Map.put("user_id", 0)
@@ -493,6 +493,14 @@ defmodule ChatWeb.ChatLive do
     )
 
     {:noreply, assign(socket, form: to_form(Messages.change_message(%Message{})))}
+  end
+
+  def handle_info({__MODULE__, :gpt, {:error, _}}, socket) do
+    socket =
+      socket
+      |> assign(chat_gpt_token: "")
+
+    {:noreply, socket}
   end
 
   defp spawn_gpt_client(token, content) do
