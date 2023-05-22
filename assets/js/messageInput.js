@@ -1,43 +1,42 @@
 const HardCodedDelay = 1_000;
-const StartTyping = "start_typing";
-const EndTyping = "end_typing";
+const StartTyping = 'start_typing';
+const EndTyping = 'end_typing';
+
+const makeDebounceFunction = (handler, delay = 1000, binder = null) => {
+  let timer = setTimeout(() => {}, 0);
+  const bound = binder ? handler.bind(binder) : handler;
+  return (event) =>
+    clearTimeout(timer) ||
+    ((timer = setTimeout(() => bound(event), delay)) && undefined);
+};
+
+const makeThrottleFunction = (handler, delay = 1000, binder = null) => {
+  let ticking = false;
+  const bound = binder ? handler : handler.bind(binder);
+  return (event) =>
+    ticking
+      ? undefined
+      : (ticking = true) &&
+        setTimeout(() => (ticking = false) || bound(event), delay) &&
+        undefined;
+};
 
 export default MessageInput = {
   mounted() {
     const that = this;
 
-    this.el.addEventListener(
-      "keyup",
-      ((delay) => {
-        // closure
-        let throttleStarted = false;
-        let throttleTimer;
-        let debounceStarted = false;
-        let debounceTimer;
-
-        return (_event) => {
-          // throttle - start_typing
-          if (throttleTimer === undefined) that.pushEvent(StartTyping);
-          if (!throttleStarted) {
-            throttleStarted = true;
-            that.pushEvent(StartTyping);
-            throttleTimer = setTimeout(() => {
-              throttleStarted = false;
-            }, delay);
-          }
-
-          // debounce - stop_typing
-          if (debounceStarted) clearTimeout(debounceTimer);
-
-          debounceStarted = true;
-          debounceTimer = setTimeout(() => {
-            debounceStarted = false;
-            that.pushEvent(EndTyping);
-          }, delay);
-        };
-
-        // delay for timeouts
-      })(HardCodedDelay)
+    const debounceHandler = makeDebounceFunction(
+      (_event) => this.pushEvent(EndTyping),
+      HardCodedDelay,
+      that,
     );
-  }
+    const throttleHandler = makeThrottleFunction(
+      (_event) => this.pushEvent(StartTyping),
+      HardCodedDelay,
+      that,
+    );
+
+    this.el.addEventListener('input', throttleHandler);
+    this.el.addEventListener('input', debounceHandler);
+  },
 };
