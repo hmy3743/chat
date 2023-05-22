@@ -147,7 +147,7 @@ defmodule ChatWeb.ChatLive do
           <div id="message-container" phx-update="stream">
             <.message_card :for={{id, message} <- @streams.messages} id={id} message={message} />
           </div>
-          <.skeleton_loading display={@loading} />
+          <.skeleton_loading id="skeleton-card" class="hidden" />
           <%= if !@loading_done do %>
             <div id="infinite-scroll-marker" phx-hook="InfiniteScroll"></div>
           <% end %>
@@ -258,18 +258,20 @@ defmodule ChatWeb.ChatLive do
     """
   end
 
-  attr(:display, :boolean, required: true)
   attr(:count, :integer, default: 30)
+  attr(:rest, :global)
 
   def skeleton_loading(assigns) do
     ~H"""
-    <div :for={_ <- 1..@count} :if={@display} class="p-2">
-      <div class="animate-pulse flex space-x-4">
-        <div class="flex-1 space-y-6 py-1">
-          <div class="space-y-3">
-            <div class="grid grid-cols-3 gap-4">
-              <div class="h-2 bg-slate-400 rounded col-span-1"></div>
-              <div class="h-2 bg-slate-400 rounded col-span-2"></div>
+    <div {@rest}>
+      <div :for={_ <- 1..@count} class="p-3">
+        <div class="animate-pulse flex space-x-4">
+          <div class="flex-1 space-y-6 py-1">
+            <div class="space-y-3">
+              <div class="grid grid-cols-3 gap-4">
+                <div class="h-2 bg-slate-400 rounded col-span-1"></div>
+                <div class="h-2 bg-slate-400 rounded col-span-2"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -444,6 +446,8 @@ defmodule ChatWeb.ChatLive do
 
   @impl Phoenix.LiveView
   def handle_info({:after_load_more, %{messages: messages, offset: offset}}, socket) do
+    IO.inspect("loading done")
+
     socket =
       socket
       |> assign(loading_done: length(messages) == 0, offset: offset, loading: false)
